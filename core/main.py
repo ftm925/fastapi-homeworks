@@ -1,7 +1,13 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Form, HTTPException, status
 from fastapi.responses import JSONResponse
-from random import randint
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Application Started ...")
+    yield 
+    print("Application Stopped")
+
 
 app = FastAPI(title="Cost Management Application")
 expense_records = [
@@ -82,11 +88,6 @@ async def delete_expense(record_id: int):
         
     ## when not found
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
-
-# @asynccontextmanager
-# async def app_lifespan(app: FastAPI):
-
-#     print("Application Started ...")
 
 
     
