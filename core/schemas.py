@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator, AfterValidator
+from pydantic import BaseModel, Field, AfterValidator
 from typing import Annotated
 
 def validate_cost(value: float):

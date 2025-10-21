@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Form, HTTPException, status
 from fastapi.responses import JSONResponse
-from typing import List
+
 import schemas
 
 @asynccontextmanager
