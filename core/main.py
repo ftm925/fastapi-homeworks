@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Form, HTTPException, status
 from fastapi.responses import JSONResponse
 
+import schemas
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application Started ...")
@@ -39,12 +41,12 @@ def generate_record_id(records):
         return records[-1].get("id")+1
     return 1
 
-@app.post("/expense")
-async def add_expense(description: str = Form(title="What was it spent on?"), cost: float = Form(title="The amount money paid.")):
+@app.post("/expenses")
+async def add_expense(expense_record: schemas.ExpenseRecordCreateSchema):
     
     record_id = generate_record_id(expense_records)
-    record_description = description
-    record_cost = cost
+    record_description = expense_record.description
+    record_cost = expense_record.cost
 
     data = {"id": record_id, "description": record_description, "cost": record_cost}
     expense_records.append(data)
@@ -60,7 +62,7 @@ async def get_expenses_list():
                         detail="No expense record found.")
 
 @app.get("/expenses/{record_id}")
-async def get_unique_expense(record_id: int, ):
+async def get_unique_expense(record_id: int):
 
     for record in expense_records:
         if record["id"] == record_id:
@@ -70,10 +72,10 @@ async def get_unique_expense(record_id: int, ):
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
 
 @app.put("/expenses/{record_id}")
-async def update_expense_detail(record_id: int, new_cost: float):
+async def update_expense_detail(record_id: int, expense: schemas.ExpenseRecordUpdateSchema):
     for record in expense_records:
         if record["id"] == record_id:
-            record["cost"] = new_cost
+            record["cost"] = expense.new_cost
             return JSONResponse(content={"detail":record}, status_code=status.HTTP_200_OK)
         
     ## when not found
