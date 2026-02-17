@@ -16,7 +16,6 @@ class ExpenseRecordCreateSchema(BaseModel):
     description: Annotated[str,Field(...,description='What was it spent on?'), AfterValidator(validate_description)]
     cost: Annotated[float,Field(..., description='How much do you spent on?'), AfterValidator(validate_cost)]
 
-
 class ExpenseRecordUpdateSchema(BaseModel):
     
     new_cost: Annotated[float,Field(..., description='What is the updated cost?'), AfterValidator(validate_cost)]

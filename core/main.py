@@ -1,103 +1,87 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Form, HTTPException, status
+from fastapi import FastAPI, Form, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from logging import Logger
 
+from database import Base, engine, get_db, Expense
 import schemas
+import json
+
+logger = Logger(name="app log")
+
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    print("Application Started ...")
+async def app_lifespan(app: FastAPI):
+    print("Application Started!")
+    Base.metadata.create_all(engine)
     yield 
     print("Application Stopped")
 
-
-app = FastAPI(title="Cost Management Application")
-expense_records = [
-    {
-      "id": 1,
-      "description": "coffee",
-      "cost": 100000
-    },
-    {
-      "id": 2,
-      "description": "pizza",
-      "cost": 350000
-    },
-    {
-      "id": 3,
-      "description": "shoe",
-      "cost": 1500000
-    },
-    {
-        "id": 4,
-        "description": "book",
-        "cost": 165720
-    }
-  ]
-
-def generate_record_id(records):
-
-    if len(records):
-        return records[-1].get("id")+1
-    return 1
+app = FastAPI(title="Cost Management Application", lifespan=app_lifespan)
 
 @app.post("/expenses")
-async def add_expense(expense_record: schemas.ExpenseRecordCreateSchema):
+async def add_expense(expense_record: schemas.ExpenseRecordCreateSchema, db: Session = Depends(get_db) ):
     
-    record_id = generate_record_id(expense_records)
-    record_description = expense_record.description
-    record_cost = expense_record.cost
+    new_record = Expense(cost=expense_record.cost, description=expense_record.description)
 
-    data = {"id": record_id, "description": record_description, "cost": record_cost}
-    expense_records.append(data)
+    db.add(new_record)
+    db.commit()
+    db.refresh(new_record)
 
     return JSONResponse(content={"detail": "Cost add successfully."}, status_code=status.HTTP_201_CREATED)
 
 @app.get("/expenses")
-async def get_expenses_list():
-    if expense_records:
-        return JSONResponse(content={"detail": expense_records}, status_code=status.HTTP_200_OK)
+async def get_expenses_list(db: Session = Depends(get_db)):
+    
+    all_expenses = db.query(Expense).all()
+    
+    if all_expenses:
+        all_expenses = [expense.as_dict() for expense in all_expenses]
+        print(all_expenses)
+        return JSONResponse(content={"detail": all_expenses}, status_code=status.HTTP_200_OK)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                         detail="No expense record found.")
 
 @app.get("/expenses/{record_id}")
-async def get_unique_expense(record_id: int):
+async def get_unique_expense(record_id: int, db:Session = Depends(get_db)):
 
-    for record in expense_records:
-        if record["id"] == record_id:
-            return JSONResponse(content={"detail": record}, status_code=status.HTTP_200_OK)
-        
-    ## when not found
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
+    expense_record = db.query(Expense).filter_by(id= record_id).one_or_none()
+    if expense_record:
+        return JSONResponse(content={"detail": expense_record.as_dict()}, status_code=status.HTTP_200_OK)
+    else:
+        ## when not found
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
 
 @app.put("/expenses/{record_id}")
-async def update_expense_detail(record_id: int, expense: schemas.ExpenseRecordUpdateSchema):
-    for record in expense_records:
-        if record["id"] == record_id:
-            record["cost"] = expense.new_cost
-            return JSONResponse(content={"detail":record}, status_code=status.HTTP_200_OK)
-        
-    ## when not found
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
+async def update_expense_detail(record_id: int, expense: schemas.ExpenseRecordUpdateSchema, db:Session = Depends(get_db)):
+    
+    expense_record = db.query(Expense).filter_by(id= record_id).one_or_none()
+    
+    if expense_record:
+        expense_record.cost = expense.new_cost
+        db.commit()
+        db.refresh(expense_record)
+        return JSONResponse(content={"detail":expense_record.as_dict()}, status_code=status.HTTP_200_OK)
+
+    else:                
+        ## when not found
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
 
 @app.delete("/expenses/{record_id}")
-async def delete_expense(record_id: int):
-    for index, record in enumerate(expense_records):
-        if record["id"] == record_id:
-            del expense_records[index]
-            return JSONResponse(content={"detail":f"Expense record with ID {record_id} deleted successfully"}, status_code=status.HTTP_200_OK)
-        
-    ## when not found
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
+async def delete_expense(record_id: int, db:Session = Depends(get_db)):
+    
+    expense_record = db.query(Expense).filter_by(id= record_id).one_or_none()
+    if expense_record:
+        db.delete(expense_record)
+        db.commit()
+        return JSONResponse(content={"detail":f"Expense record with ID {record_id} deleted successfully"}, status_code=status.HTTP_200_OK)
+    
+    else:        
+        ## when not found
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
 
 
     
-    
-    
-
-
-
-
-
 
